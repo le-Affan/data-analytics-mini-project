@@ -1,0 +1,274 @@
+﻿=== Cell 1 ===
+import pandas as pd
+
+# load
+activity = pd.read_csv(r"C:\Users\Affan\Desktop\DAL_Mini_Project\Data\Selected_Data\dailyActivity_merged.csv")
+sleep = pd.read_csv(r"C:\Users\Affan\Desktop\DAL_Mini_Project\Data\Selected_Data\sleepDay_merged.csv")
+
+# fix dates
+activity['ActivityDate'] = pd.to_datetime(activity['ActivityDate'], format='mixed').dt.date
+sleep['ActivityDate'] = pd.to_datetime(sleep['ActivityDate'], format='mixed').dt.date
+
+df = pd.merge(activity, sleep, on=["Id", "ActivityDate"], how="left")
+
+display(df.head())
+display(df.shape)
+
+=== Cell 3 ===
+# DATA PREPROCESSING PIPELINE
+
+import pandas as pd
+
+# 1. Handle missing values
+df['SleepMinutes'] = df['SleepMinutes'].fillna(0)
+
+# 2. Remove duplicates (if any)
+df = df.drop_duplicates()
+
+# 3. Remove invalid rows (basic sanity)
+df = df[df['TotalSteps'] >= 0]
+df = df[df['Calories'] > 0]
+
+# 4. Feature Engineering
+df['TotalActiveMinutes'] = (
+df['VeryActiveMinutes'] +
+df['FairlyActiveMinutes'] +
+df['LightlyActiveMinutes']
+)
+
+# 5. Optional: Activity Ratio (useful for clustering)
+df['ActivityRatio'] = df['TotalActiveMinutes'] / (df['SedentaryMinutes'] + 1)
+
+# 6. Convert date to datetime (for sorting if needed)
+df['ActivityDate'] = pd.to_datetime(df['ActivityDate'])
+
+# 7. Sort data (clean structure)
+df = df.sort_values(by=['Id', 'ActivityDate'])
+
+# 8. Reset index
+df = df.reset_index(drop=True)
+
+# FINAL CHECK
+print(df.info())
+print(df.describe())
+
+=== Cell 5 ===
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Select column (use Calories for your dataset)
+data = df['Calories']
+
+# Sort data
+data_sorted = data.sort_values()
+
+# Calculate quartiles
+Q1 = data.quantile(0.25)
+Q2 = data.median()
+Q3 = data.quantile(0.75)
+
+# Compute IQR
+IQR = Q3 - Q1
+
+print(f"Q1 (25th percentile): {Q1}")
+print(f"Q2 (Median): {Q2}")
+print(f"Q3 (75th percentile): {Q3}")
+print(f"IQR: {IQR}")
+
+# Calculate bounds
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+print(f"Lower Bound: {lower_bound}")
+print(f"Upper Bound: {upper_bound}")
+
+# Identify outliers
+outliers = data[(data < lower_bound) | (data > upper_bound)]
+print("Outliers:", outliers.values)
+
+# Plot box plot
+plt.figure(figsize=(6,6))
+plt.boxplot(data, vert=True)
+
+plt.title("Box Plot of Calories")
+plt.ylabel("Calories")
+
+plt.show()
+
+
+=== Cell 7 ===
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error
+import matplotlib.pyplot as plt
+
+# Features (X) and Target (y)
+X = df[['TotalActiveMinutes']]
+y = df['Calories']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Metrics
+r2 = r2_score(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+
+print(f"Intercept: {model.intercept_}")
+print(f"Slope: {model.coef_[0]}")
+print(f"R▓ Score: {r2}")
+print(f"MSE: {mse}")
+
+# Plot
+plt.scatter(X_test, y_test)
+plt.plot(X_test, y_pred)
+
+plt.xlabel("Total Active Minutes")
+plt.ylabel("Calories")
+plt.title("Linear Regression: Active Minutes vs Calories")
+
+plt.show()
+
+
+=== Cell 9 ===
+import numpy as np
+
+# 1. Population
+population = df.copy()
+population_size = len(population)
+
+print("Population Size:", population_size)
+
+
+# 2. Simple Random Sampling
+simple_sample = population.sample(n=50, random_state=42)
+
+
+# 3. Systematic Sampling
+k = population_size // 50
+systematic_sample = population.iloc[::k].head(50)
+
+
+# 4. Stratified Sampling
+
+# Create strata using activity levels
+population['ActivityLevel'] = pd.qcut(population['TotalActiveMinutes'], q=3, labels=["Low", "Medium", "High"])
+
+stratified_sample = population.groupby('ActivityLevel', group_keys=False).apply(lambda x: x.sample(15, random_state=42))
+
+
+# 5. Cluster Sampling
+
+# Treat Id as cluster (users)
+random_cluster = np.random.choice(population['Id'].unique())
+cluster_sample = population[population['Id'] == random_cluster]
+
+
+# 6. Compare Means
+print("\n--- Mean Calories Comparison ---")
+print("Population Mean:", population['Calories'].mean())
+print("Simple Random Mean:", simple_sample['Calories'].mean())
+print("Systematic Mean:", systematic_sample['Calories'].mean())
+print("Stratified Mean:", stratified_sample['Calories'].mean())
+print("Cluster Mean:", cluster_sample['Calories'].mean())
+
+
+=== Cell 11 ===
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+
+# features
+X = df[['TotalSteps', 'TotalActiveMinutes', 'SedentaryMinutes', 'SleepMinutes']]
+
+# scale
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# elbow method
+wcss = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X_scaled)
+    wcss.append(kmeans.inertia_)
+
+plt.plot(range(1, 11), wcss)
+plt.xlabel("K")
+plt.ylabel("WCSS")
+plt.title("Elbow Method")
+plt.show()
+
+# final model (use K=3)
+kmeans = KMeans(n_clusters=3, random_state=42)
+df['Cluster'] = kmeans.fit_predict(X_scaled)
+
+# visualize (2D)
+plt.scatter(df['TotalActiveMinutes'], df['Calories'], c=df['Cluster'])
+plt.xlabel("Total Active Minutes")
+plt.ylabel("Calories")
+plt.title("Clusters")
+plt.show()
+
+=== Cell 13 ===
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+# random variable
+X = df['Calories']
+
+# mean and std
+mean = X.mean()
+std = X.std()
+
+print("Mean:", mean)
+print("Std Dev:", std)
+
+# generate PDF
+x_values = np.linspace(X.min(), X.max(), 100)
+pdf_values = norm.pdf(x_values, mean, std)
+
+# plot
+plt.hist(X, bins=30, density=True)
+plt.plot(x_values, pdf_values)
+
+plt.xlabel("Calories")
+plt.ylabel("Density")
+plt.title("Probability Distribution of Calories")
+
+plt.show()
+
+=== Cell 15 ===
+import numpy as np
+from scipy.stats import skew, kurtosis
+import matplotlib.pyplot as plt
+
+# use Calories
+data = df['Calories']
+
+# stats
+mean = np.mean(data)
+variance = np.var(data)
+std_dev = np.std(data)
+skewness = skew(data)
+kurt = kurtosis(data)
+
+print("Mean:", mean)
+print("Variance:", variance)
+print("Standard Deviation:", std_dev)
+print("Skewness:", skewness)
+print("Kurtosis:", kurt)
+
+# plot
+plt.hist(data, bins=30)
+plt.title("Distribution of Calories")
+plt.xlabel("Calories")
+plt.ylabel("Frequency")
+plt.show()
+
