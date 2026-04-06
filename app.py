@@ -1,156 +1,425 @@
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.figure_factory as ff
 from scipy.stats import linregress, norm, skew, kurtosis as scipy_kurtosis
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-# ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
+# ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Fitness Analytics Dashboard",
-    page_icon="🏃",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ─── GLOBAL CSS ──────────────────────────────────────────────────────────────
+# ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+/* ── Reset & Base ── */
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: transparent !important;
+}
 
-/* Animated gradient header */
-.hero-header {
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    border-radius: 16px;
-    padding: 2.5rem 2rem 2rem 2rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    animation: fadeInDown 0.6s ease;
+/* ── Full-page dark gradient ── */
+.stApp {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%) !important;
+    min-height: 100vh;
+}
+
+/* ── Hide sidebar toggle & default padding ── */
+[data-testid="collapsedControl"] { display: none !important; }
+section[data-testid="stSidebar"] { display: none !important; }
+.block-container {
+    max-width: 1100px !important;
+    padding: 2rem 2rem 4rem 2rem !important;
+    margin: 0 auto !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.4); border-radius: 3px; }
+
+/* ─────────────────────────────────────────
+   HERO HEADER
+───────────────────────────────────────── */
+.hero-wrap {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 2.8rem 2.5rem 2.4rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    animation: fadeDown 0.7s ease both;
+    position: relative;
+    overflow: hidden;
+}
+.hero-wrap::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(102,126,234,0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; right: -60px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(118,75,162,0.14) 0%, transparent 70%);
+    pointer-events: none;
 }
 .hero-title {
-    font-size: 2.4rem;
-    font-weight: 700;
-    color: #ffffff;
-    margin: 0 0 0.3rem 0;
-    letter-spacing: -0.5px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.8px;
+    line-height: 1.15;
+}
+.hero-title span {
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 .hero-sub {
-    font-size: 1.05rem;
-    color: rgba(255,255,255,0.65);
-    margin: 0;
+    font-size: 1rem;
+    color: #94a3b8;
+    margin: 0 0 1.2rem;
+    font-weight: 400;
+    line-height: 1.6;
 }
 .hero-badge {
     display: inline-block;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.8);
-    margin-top: 0.8rem;
+    background: rgba(102,126,234,0.15);
+    border: 1px solid rgba(102,126,234,0.35);
+    border-radius: 50px;
+    padding: 5px 16px;
+    font-size: 0.78rem;
+    color: #a5b4fc;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+.hero-line {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 2px;
+    margin: 1rem 0;
 }
 
-/* Metric cards */
+/* ─────────────────────────────────────────
+   METRIC CARDS
+───────────────────────────────────────── */
 div[data-testid="metric-container"] {
-    background: linear-gradient(145deg, #1e1e2e, #2a2a3e);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
-    padding: 1.2rem 1.4rem;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: rgba(255,255,255,0.04) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 18px !important;
+    padding: 1.4rem 1.5rem !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+div[data-testid="metric-container"]::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 18px 18px 0 0;
 }
 div[data-testid="metric-container"]:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(102,126,234,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-color: rgba(102,126,234,0.3) !important;
 }
-div[data-testid="metric-container"] label { color: rgba(255,255,255,0.55) !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 1px; }
-div[data-testid="metric-container"] div[data-testid="stMetricValue"] { color: #e0e0ff !important; font-size: 1.9rem !important; font-weight: 700 !important; }
+div[data-testid="metric-container"] label {
+    color: #64748b !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600 !important;
+}
+div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+    color: #e2e8f0 !important;
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.5px;
+}
 
-/* Section cards */
-.section-card {
-    background: linear-gradient(145deg, #1a1a2e, #16213e);
+/* ─────────────────────────────────────────
+   SECTION CARDS (glassmorphism)
+───────────────────────────────────────── */
+.glass-card {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 16px;
-    padding: 1.8rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    animation: fadeIn 0.5s ease;
+    border-radius: 20px;
+    padding: 2rem 2rem 1.6rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    animation: fadeUp 0.6s ease both;
 }
-.section-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: #a9b7ff;
-    margin-bottom: 0.3rem;
+.glass-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 48px rgba(102,126,234,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-color: rgba(102,126,234,0.18);
+}
+
+/* Section header row */
+.sec-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
 }
-.section-exp-num {
+.sec-badge {
     background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
+    color: #fff;
     border-radius: 8px;
-    padding: 2px 9px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    padding: 5px 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    flex-shrink: 0;
+}
+.sec-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #f1f5f9;
+    margin: 0;
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+}
+.sec-desc {
+    color: #cbd5e1;
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
 }
 
-/* Interpretation box */
+/* ─────────────────────────────────────────
+   STAT LIST
+───────────────────────────────────────── */
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.95rem;
+    color: #94a3b8;
+}
+.stat-item:last-child { border-bottom: none; }
+.stat-val {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────
+   INTERPRETATION BOX
+───────────────────────────────────────── */
 .interp-box {
     background: rgba(102,126,234,0.1);
-    border-left: 3px solid #667eea;
-    border-radius: 0 10px 10px 0;
-    padding: 0.9rem 1.1rem;
-    margin-top: 1rem;
-    font-size: 0.88rem;
-    color: rgba(255,255,255,0.75);
-    line-height: 1.6;
+    border-left: 4px solid #818cf8;
+    border-radius: 0 16px 16px 0;
+    padding: 1.4rem 1.6rem;
+    margin-top: 1.5rem;
+    font-size: 1.05rem;
+    color: #f1f5f9;
+    line-height: 1.7;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
-.interp-box b { color: #a9b7ff; }
+.interp-box b { color: #c084fc; font-weight: 800; }
 
-/* Stats list */
-.stat-item { display:flex; justify-content:space-between; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.88rem; color: rgba(255,255,255,0.7); }
-.stat-item:last-child { border-bottom: none; }
-.stat-val { color: #e0e0ff; font-weight: 600; }
+/* ─────────────────────────────────────────
+   TABLE
+───────────────────────────────────────── */
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+.styled-table th {
+    background: rgba(102,126,234,0.15);
+    color: #a5b4fc;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.styled-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #94a3b8;
+}
+.styled-table tr:hover td { background: rgba(255,255,255,0.03); }
 
-/* Table styling */
-.styled-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
-.styled-table th { background:rgba(102,126,234,0.2); color:#a9b7ff; padding:8px 12px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.1); }
-.styled-table td { padding:7px 12px; border-bottom:1px solid rgba(255,255,255,0.04); color:rgba(255,255,255,0.75); }
-.styled-table tr:hover td { background:rgba(255,255,255,0.03); }
+/* ─────────────────────────────────────────
+   CHART CARD WRAPPER
+───────────────────────────────────────── */
+.chart-shell {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 1rem 0.5rem 0.5rem;
+    margin-bottom: 0.5rem;
+}
 
-/* Sidebar */
-section[data-testid="stSidebar"] { background: linear-gradient(180deg, #0f0c29 0%, #1a1535 100%); }
-section[data-testid="stSidebar"] label { color: rgba(255,255,255,0.65) !important; }
-section[data-testid="stSidebar"] .stMultiSelect [data-baseweb="tag"] { background: #667eea !important; }
+/* ─────────────────────────────────────────
+   DIVIDER
+───────────────────────────────────────── */
+hr {
+    border: none !important;
+    border-top: 1px solid rgba(255,255,255,0.05) !important;
+    margin: 2rem 0 !important;
+}
 
-/* Divider */
-hr { border-color: rgba(255,255,255,0.06) !important; margin: 1.5rem 0 !important; }
+/* ─────────────────────────────────────────
+   ANIMATIONS
+───────────────────────────────────────── */
+@keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
 
-@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-@keyframes fadeInDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+/* staggered card animations */
+.glass-card:nth-child(1) { animation-delay: 0.05s; }
+.glass-card:nth-child(2) { animation-delay: 0.12s; }
+.glass-card:nth-child(3) { animation-delay: 0.19s; }
+.glass-card:nth-child(4) { animation-delay: 0.26s; }
+.glass-card:nth-child(5) { animation-delay: 0.33s; }
+.glass-card:nth-child(6) { animation-delay: 0.40s; }
+
+/* ─────────────────────────────────────────
+   METRICS ROW WRAPPER
+───────────────────────────────────────── */
+.metrics-row {
+    animation: fadeUp 0.65s 0.1s ease both;
+    margin-bottom: 2rem;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ─── PARTICLE BACKGROUND ──────────────────────────────────────────────────────
+components.html("""
+<style>
+  #particle-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+<canvas id="particle-canvas"></canvas>
+<script>
+(function () {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const COUNT = 60;
+  const particles = Array.from({ length: COUNT }, () => ({
+    x:  Math.random() * W,
+    y:  Math.random() * H,
+    r:  Math.random() * 1.6 + 0.4,
+    vx: (Math.random() - 0.5) * 0.22,
+    vy: (Math.random() - 0.5) * 0.22,
+    o:  Math.random() * 0.25 + 0.06,
+  }));
+
+  /* connect nearby particles */
+  function drawLines() {
+    for (let i = 0; i < COUNT; i++) {
+      for (let j = i + 1; j < COUNT; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < 130) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(102,126,234,${0.07 * (1 - d / 130)})`;
+          ctx.lineWidth   = 0.6;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function loop() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(148,163,184,${p.o})`;
+      ctx.fill();
+    }
+
+    drawLines();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+})();
+</script>
+""", height=0, scrolling=False)
 
 # ─── PLOTLY THEME ─────────────────────────────────────────────────────────────
 PLOTLY_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(26,26,46,0.6)",
-    font=dict(family="Inter", color="rgba(255,255,255,0.75)", size=11),
+    plot_bgcolor="rgba(15,23,42,0.5)",
+    font=dict(family="Inter", color="rgba(148,163,184,0.9)", size=11),
     margin=dict(l=10, r=10, t=30, b=10),
-    xaxis=dict(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.08)"),
-    yaxis=dict(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.08)"),
-    colorway=["#667eea","#f5a623","#50e3c2","#e74c3c","#2ecc71","#9b59b6"],
-    hoverlabel=dict(bgcolor="#2a2a3e", font_color="white", bordercolor="rgba(255,255,255,0.1)"),
-    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.1)"),
+    xaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.06)"),
+    yaxis=dict(gridcolor="rgba(255,255,255,0.04)", zerolinecolor="rgba(255,255,255,0.06)"),
+    colorway=["#667eea","#f59e0b","#34d399","#f87171","#a78bfa","#38bdf8"],
+    hoverlabel=dict(bgcolor="#1e293b", font_color="#e2e8f0", bordercolor="rgba(255,255,255,0.1)"),
+    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.08)"),
 )
-CLUSTER_COLOR_MAP = {"0":"#667eea","1":"#f5a623","2":"#50e3c2"}
+CLUSTER_COLOR_MAP = {"0":"#667eea","1":"#f59e0b","2":"#34d399"}
 
 # ─── DATA LOADING ─────────────────────────────────────────────────────────────
 @st.cache_data
@@ -164,25 +433,22 @@ def load_data():
         activity = pd.read_csv(act_path)
         sleep    = pd.read_csv(slp_path)
 
-        # Normalize dates — both CSVs already have 'ActivityDate'
         activity["ActivityDate"] = pd.to_datetime(activity["ActivityDate"], format="mixed").dt.date
         sleep["ActivityDate"]    = pd.to_datetime(sleep["ActivityDate"],    format="mixed").dt.date
 
         df = pd.merge(activity, sleep, on=["Id","ActivityDate"], how="left")
         df["SleepMinutes"] = df["SleepMinutes"].fillna(0)
 
-        # Feature engineering (mirrors notebook cell 3)
         df = df.drop_duplicates()
         df = df[df["TotalSteps"] >= 0]
         df = df[df["Calories"] > 0]
         df["TotalActiveMinutes"] = df["VeryActiveMinutes"] + df["FairlyActiveMinutes"] + df["LightlyActiveMinutes"]
         df["ActivityRatio"]      = df["TotalActiveMinutes"] / (df["SedentaryMinutes"] + 1)
 
-        # Clustering (mirrors notebook cell 9)
         X = df[["TotalActiveMinutes","Calories"]].fillna(0)
-        scaler = StandardScaler()
+        scaler   = StandardScaler()
         X_scaled = scaler.fit_transform(X)
-        kmeans = KMeans(n_clusters=3, random_state=42, n_init="auto")
+        kmeans   = KMeans(n_clusters=3, random_state=42, n_init="auto")
         df["Cluster"] = kmeans.fit_predict(X_scaled)
 
         df["ActivityDate"] = pd.to_datetime(df["ActivityDate"])
@@ -192,57 +458,90 @@ def load_data():
 
 df_raw, load_err = load_data()
 if df_raw is None:
-    st.error(f"❌ Data Loading Failed: {load_err}")
+    st.error(f"Data Loading Failed: {load_err}")
     st.stop()
 
-# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-st.sidebar.markdown("## 🔍 Filters")
-st.sidebar.markdown("---")
-
-all_ids = sorted(df_raw["Id"].unique().tolist())
-sel_ids = st.sidebar.multiselect("User ID", all_ids, default=all_ids)
-
-min_d, max_d = df_raw["ActivityDate"].min().date(), df_raw["ActivityDate"].max().date()
-date_range = st.sidebar.date_input("Date Range", [min_d, max_d], min_value=min_d, max_value=max_d)
-
-df = df_raw[df_raw["Id"].isin(sel_ids)].copy()
-if len(date_range) == 2:
-    s, e = date_range
-    df = df[(df["ActivityDate"].dt.date >= s) & (df["ActivityDate"].dt.date <= e)]
-
-if df.empty:
-    st.warning("⚠️ No data matches the selected filters.")
-    st.stop()
-
+# No sidebar filters — use full dataset
+df = df_raw.copy()
 n_rows, n_cols = df.shape
+
+# ─── HELPER: section card opener / closer ─────────────────────────────────────
+def sec_open(badge, title, desc=""):
+    desc_html = f"<div class='sec-desc'>{desc}</div>" if desc else ""
+    st.markdown(f"""
+    <div class="glass-card" style="padding: 2.5rem 2.8rem 2.2rem;">
+      <div class="sec-header">
+        <span class="sec-badge">{badge}</span>
+        <span class="sec-title">{title}</span>
+      </div>
+      {desc_html}
+      <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 1.5rem 0 2.2rem 0;"></div>
+    """, unsafe_allow_html=True)
+
+def sec_close():
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ─── HERO HEADER ──────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div class="hero-header">
-  <p class="hero-title">🏃 Fitness Analytics Dashboard</p>
-  <p class="hero-sub">Comprehensive Analysis of Activity, Calories &amp; Health Patterns</p>
-  <span class="hero-badge">📊 Dataset: {n_rows} rows × {n_cols} columns</span>
-</div>
-""", unsafe_allow_html=True)
-
-# ─── SUMMARY METRIC CARDS ─────────────────────────────────────────────────────
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("🔥 Mean Calories",         f"{df['Calories'].mean():.0f} kcal")
-c2.metric("😴 Avg Sleep",             f"{df['SleepMinutes'].mean():.0f} min")
-c3.metric("🏃 Avg Active Minutes",    f"{df['TotalActiveMinutes'].mean():.0f} min")
-c4.metric("🪑 Avg Sedentary Minutes", f"{df['SedentaryMinutes'].mean():.0f} min")
-
-st.markdown("---")
-
-# ─── EXP 1 — BOX PLOT ─────────────────────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 1</span>
-    📦 Calorie Distribution &amp; Outlier Analysis
+<div class="hero-wrap" style="padding: 3.5rem 2.5rem; text-align: center;">
+  <p class="hero-title" style="font-size: 3.6rem; letter-spacing: -1.2px;">Fitness Analytics <span>Dashboard</span></p>
+  <p class="hero-sub" style="font-size: 1.15rem; color: #cbd5e1; font-weight: 500; margin-bottom: 2rem;">Comprehensive Analysis of Activity, Calories, and Health Patterns</p>
+  <div style="max-width: 850px; margin: 0 auto; color: #94a3b8; font-size: 0.98rem; line-height: 1.7;">
+    This project analyzes real-world Fitbit fitness tracker data to understand activity patterns, calorie expenditure, sleep behavior, and user fitness segmentation using statistical analysis and machine learning techniques.
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+# ─── INFO CARDS ──────────────────────────────────────────────────────────────
+info_col1, info_col2 = st.columns(2, gap="large")
+
+with info_col1:
+    st.markdown(f"""
+    <div class="glass-card" style="padding: 1.8rem; height: 100%; margin-bottom: 1rem;">
+      <div style="font-size: 1.1rem; font-weight: 600; color: #c7d2fe; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="background: linear-gradient(135deg, #667eea, #764ba2); width: 4px; height: 1.1rem; border-radius: 2px;"></span>
+        Dataset Information
+      </div>
+      <div class='stat-item'><span>Dataset Name</span><span class='stat-val'>Fitbit Fitness Tracker Data</span></div>
+      <div class='stat-item'><span>Source</span><span class='stat-val'><a href="https://www.kaggle.com/datasets/arashnic/fitbit" target="_blank" style="color: #818cf8; text-decoration: none;">kaggle.com/datasets/arashnic/fitbit</a></span></div>
+      <div class='stat-item'><span>Records</span><span class='stat-val'>{n_rows} rows</span></div>
+      <div class='stat-item'><span>Features</span><span class='stat-val'>{n_cols} columns</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with info_col2:
+    st.markdown("""
+    <div class="glass-card" style="padding: 1.8rem; height: 100%; margin-bottom: 1rem;">
+      <div style="font-size: 1.1rem; font-weight: 600; color: #c7d2fe; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="background: linear-gradient(135deg, #667eea, #764ba2); width: 4px; height: 1.1rem; border-radius: 2px;"></span>
+        Student Details
+      </div>
+      <div class='stat-item'><span>Name</span><span class='stat-val'>Affan Shaikh</span></div>
+      <div class='stat-item'><span>Roll Number</span><span class='stat-val'>16014223006</span></div>
+      <div class='stat-item'><span>Program</span><span class='stat-val'>TY BTech AI & DS</span></div>
+      <div class='stat-item'><span>Batch</span><span class='stat-val'>B1</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─── DATASET DESCRIPTION ──────────────────────────────────────────────────────
+st.markdown("""
+<div class="glass-card" style="padding: 1.8rem; margin-bottom: 3rem;">
+  <div style="font-size: 1.15rem; font-weight: 600; color: #c7d2fe; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+    <span style="background: linear-gradient(135deg, #667eea, #764ba2); width: 4px; height: 1.15rem; border-radius: 2px;"></span>
+    About the Dataset
+  </div>
+  <div style="color: #94a3b8; font-size: 0.95rem; line-height: 1.7;">
+    The dataset contains activity, calorie, and sleep tracking data collected from Fitbit users. It includes daily metrics such as steps taken, activity intensity, sedentary time, and sleep duration. This data enables analysis of user behavior patterns and fitness levels.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ─── EXP 1 — BOX PLOT ─────────────────────────────────────────────────────────
+sec_open(
+    "EXP 1", 
+    "Calorie Distribution &amp; Outlier Analysis",
+    "This experiment uses box plot analysis to understand the distribution of calorie expenditure and identify statistical outliers using quartiles and IQR."
+)
 
 q1  = df["Calories"].quantile(0.25)
 med = df["Calories"].median()
@@ -250,93 +549,88 @@ q3  = df["Calories"].quantile(0.75)
 iqr = q3 - q1
 lb  = q1 - 1.5 * iqr
 ub  = q3 + 1.5 * iqr
-outliers = df[( df["Calories"] < lb) | (df["Calories"] > ub)]["Calories"]
+outliers = df[(df["Calories"] < lb) | (df["Calories"] > ub)]["Calories"]
 
 col_l, col_r = st.columns([2, 1], gap="large")
 with col_l:
+    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_box = px.box(df, y="Calories", points="outliers",
                      color_discrete_sequence=["#667eea"])
-    fig_box.update_traces(marker_color="#f5a623", marker_size=5, line_color="#667eea")
+    fig_box.update_traces(marker_color="#f59e0b", marker_size=5, line_color="#667eea")
     fig_box.update_layout(**PLOTLY_LAYOUT)
     st.plotly_chart(fig_box, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r:
     st.markdown(f"""
-    <div style='margin-top:0.5rem'>
-      <div class='stat-item'><span>Q1 (25th pct)</span><span class='stat-val'>{q1:.1f}</span></div>
-      <div class='stat-item'><span>Median</span><span class='stat-val'>{med:.1f}</span></div>
-      <div class='stat-item'><span>Q3 (75th pct)</span><span class='stat-val'>{q3:.1f}</span></div>
-      <div class='stat-item'><span>IQR</span><span class='stat-val'>{iqr:.1f}</span></div>
-      <div class='stat-item'><span>Lower Bound</span><span class='stat-val'>{lb:.2f}</span></div>
-      <div class='stat-item'><span>Upper Bound</span><span class='stat-val'>{ub:.2f}</span></div>
-      <div class='stat-item'><span>Outlier Count</span><span class='stat-val'>{len(outliers)}</span></div>
+    <div class='stat-item'><span>Lower Quartile (Q1)</span><span class='stat-val'>{q1:.1f}</span></div>
+    <div class='stat-item'><span>Median</span><span class='stat-val'>{med:.1f}</span></div>
+    <div class='stat-item'><span>Upper Quartile (Q3)</span><span class='stat-val'>{q3:.1f}</span></div>
+    <div class='stat-item'><span>IQR</span><span class='stat-val'>{iqr:.1f}</span></div>
+    <div class='stat-item'><span>Lower Bound</span><span class='stat-val'>{lb:.2f}</span></div>
+    <div class='stat-item'><span>Upper Bound</span><span class='stat-val'>{ub:.2f}</span></div>
+    <div class='stat-item' style='margin-top: 0.5rem;'><span style='font-weight: 700; color: #f1f5f9;'>Outlier Count</span><span class='stat-val' style='font-size: 1.15rem; color: #f87171;'>{len(outliers)}</span></div>
+    
+    <div style='margin-top: 1.8rem; color: #c084fc; font-weight: 600; font-size: 1.05rem; display: flex; align-items: start; gap: 0.4rem;'>
+      <span style='font-size: 1.2rem;'>&#10024;</span> 
+      <div><b>Key Insight:</b> Calories show high variability with multiple outliers on both ends.</div>
     </div>
+    
     <div class='interp-box'>
       <b>Interpretation:</b> Calorie expenditure shows notable variability with several extreme
       values, indicating diverse activity levels among users.
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+sec_close()
 
 # ─── EXP 2 — LINEAR REGRESSION ────────────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 2</span>
-    📈 Linear Regression — Active Minutes vs Calories
-  </div>
-</div>
-""", unsafe_allow_html=True)
+sec_open(
+    "EXP 2", 
+    "Linear Regression &mdash; Active Minutes vs Calories",
+    "This experiment explores the linear relationship between total active minutes and calories burned using ordinary least squares (OLS) regression."
+)
 
-# Full-population regression (mirrors exact notebook approach)
 slope_full, intercept_full, r_full, _, _ = linregress(df_raw["TotalActiveMinutes"], df_raw["Calories"])
 r2_full = r_full ** 2
 
-# Scatter from filtered df + regression line
 col_l2, col_r2 = st.columns([2, 1], gap="large")
 with col_l2:
+    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_reg = px.scatter(df, x="TotalActiveMinutes", y="Calories",
-                         trendline="ols", trendline_color_override="#f5a623",
+                         trendline="ols", trendline_color_override="#f59e0b",
                          opacity=0.55, color_discrete_sequence=["#667eea"])
     fig_reg.update_layout(**PLOTLY_LAYOUT,
                           xaxis_title="Total Active Minutes",
                           yaxis_title="Calories")
     st.plotly_chart(fig_reg, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r2:
     st.markdown(f"""
-    <div style='margin-top:0.5rem'>
-      <div class='stat-item'><span>Intercept</span><span class='stat-val'>≈ {intercept_full:.1f}</span></div>
-      <div class='stat-item'><span>Slope</span><span class='stat-val'>≈ {slope_full:.4f}</span></div>
-      <div class='stat-item'><span>R² Score</span><span class='stat-val'>≈ {r2_full:.4f}</span></div>
-    </div>
+    <div class='stat-item'><span>Intercept</span><span class='stat-val'>&#8776; {intercept_full:.1f}</span></div>
+    <div class='stat-item'><span>Slope</span><span class='stat-val'>&#8776; {slope_full:.4f}</span></div>
+    <div class='stat-item'><span>R&sup2; Score</span><span class='stat-val'>&#8776; {r2_full:.4f}</span></div>
     <div class='interp-box'>
       <b>Interpretation:</b> There is a weak positive relationship between total active minutes
-      and calories burned, suggesting that additional factors also influence calorie expenditure.
+      and calories burned, suggesting additional factors also influence calorie expenditure.
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+sec_close()
 
 # ─── EXP 3 — SAMPLING ─────────────────────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 3</span>
-    ⚖️ Sampling Technique Comparison
-  </div>
-</div>
-""", unsafe_allow_html=True)
+sec_open(
+    "EXP 3", 
+    "Sampling Technique Comparison",
+    "This experiment evaluates the representativeness of different sampling techniques against the entire population mean for calorie expenditure."
+)
 
-# Mirror notebook: use full population (df_raw after feature engineering but no filter)
 population = df_raw.copy()
-
-pop_mean = population["Calories"].mean()
-sr_mean  = population.sample(n=50, random_state=42)["Calories"].mean()
-
-k_step   = len(population) // 50
-sys_mean = population.iloc[::k_step].head(50)["Calories"].mean()
+pop_mean   = population["Calories"].mean()
+sr_mean    = population.sample(n=50, random_state=42)["Calories"].mean()
+k_step     = len(population) // 50
+sys_mean   = population.iloc[::k_step].head(50)["Calories"].mean()
 
 population["ActivityLevel"] = pd.qcut(population["TotalActiveMinutes"], q=3, labels=["Low","Medium","High"])
 strat_sample = population.groupby("ActivityLevel", group_keys=False, observed=False).apply(
@@ -345,29 +639,32 @@ strat_mean = strat_sample["Calories"].mean()
 
 np.random.seed(42)
 random_cluster_id = np.random.choice(population["Id"].unique())
-cluster_mean = population[population["Id"] == random_cluster_id]["Calories"].mean()
+cluster_mean      = population[population["Id"] == random_cluster_id]["Calories"].mean()
 
 sampling_df = pd.DataFrame({
-    "Method": ["Population","Simple Random","Systematic","Stratified","Cluster (single user)"],
+    "Method":        ["Population","Simple Random","Systematic","Stratified","Cluster (single user)"],
     "Mean Calories": [pop_mean, sr_mean, sys_mean, strat_mean, cluster_mean],
 })
 
 col_l3, col_r3 = st.columns([2, 1], gap="large")
 with col_l3:
+    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_bar = px.bar(sampling_df, x="Method", y="Mean Calories",
-                     text_auto=".0f",
-                     color="Method",
-                     color_discrete_sequence=["#667eea","#f5a623","#50e3c2","#e74c3c","#9b59b6"])
-    fig_bar.add_hline(y=pop_mean, line_dash="dash", line_color="rgba(255,255,255,0.3)",
+                     text_auto=".0f", color="Method",
+                     color_discrete_sequence=["#667eea","#f59e0b","#34d399","#f87171","#a78bfa"])
+    fig_bar.add_hline(y=pop_mean, line_dash="dash",
+                      line_color="rgba(255,255,255,0.25)",
                       annotation_text=f"Population Mean: {pop_mean:.0f}",
-                      annotation_font_color="rgba(255,255,255,0.5)")
+                      annotation_font_color="rgba(255,255,255,0.45)")
     fig_bar.update_layout(**PLOTLY_LAYOUT, showlegend=False,
                           xaxis_title="", yaxis_title="Mean Calories")
     st.plotly_chart(fig_bar, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r3:
     rows_html = "".join(
-        f"<tr><td>{r['Method']}</td><td style='text-align:right;color:#e0e0ff;font-weight:600'>{r['Mean Calories']:.0f}</td></tr>"
+        f"<tr><td>{r['Method']}</td>"
+        f"<td style='text-align:right;color:#e2e8f0;font-weight:600'>{r['Mean Calories']:.0f}</td></tr>"
         for _, r in sampling_df.iterrows()
     )
     st.markdown(f"""
@@ -381,17 +678,14 @@ with col_r3:
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+sec_close()
 
 # ─── EXP 4 — CLUSTERING ───────────────────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 4</span>
-    🧩 K-Means Clustering — User Fitness Segments
-  </div>
-</div>
-""", unsafe_allow_html=True)
+sec_open(
+    "EXP 4", 
+    "K-Means Clustering &mdash; User Fitness Segments",
+    "This experiment applies K-Means clustering to segment users into distinct activity levels based on total active minutes and calories."
+)
 
 CLUSTER_LABELS = {"0":"Low Activity","1":"Medium Activity","2":"High Activity"}
 
@@ -401,6 +695,7 @@ df_plot["Segment"]     = df_plot["Cluster_Str"].map(CLUSTER_LABELS)
 
 col_l4, col_r4 = st.columns([2, 1], gap="large")
 with col_l4:
+    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_clust = px.scatter(df_plot, x="TotalActiveMinutes", y="Calories",
                            color="Cluster_Str",
                            hover_data={"Segment":True,"Cluster_Str":False},
@@ -411,6 +706,7 @@ with col_l4:
                             yaxis_title="Calories",
                             legend_title="Cluster")
     st.plotly_chart(fig_clust, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r4:
     cluster_stats = df_plot.groupby("Cluster_Str").agg(
@@ -420,34 +716,39 @@ with col_r4:
     ).reset_index()
 
     rows_c = "".join(
-        f"<tr><td><span style='color:{CLUSTER_COLOR_MAP[r.Cluster_Str]};font-weight:600'>{CLUSTER_LABELS.get(r.Cluster_Str,r.Cluster_Str)}</span></td>"
+        f"<tr>"
+        f"<td><span style='color:{CLUSTER_COLOR_MAP[r.Cluster_Str]};font-weight:600'>"
+        f"{CLUSTER_LABELS.get(r.Cluster_Str, r.Cluster_Str)}</span></td>"
         f"<td style='text-align:right'>{r.Count}</td>"
         f"<td style='text-align:right'>{r.Avg_Cal:.0f}</td>"
-        f"<td style='text-align:right'>{r.Avg_Min:.0f}</td></tr>"
+        f"<td style='text-align:right'>{r.Avg_Min:.0f}</td>"
+        f"</tr>"
         for r in cluster_stats.itertuples()
     )
     st.markdown(f"""
     <table class='styled-table'>
-      <tr><th>Segment</th><th style='text-align:right'>Users</th><th style='text-align:right'>Avg Cal</th><th style='text-align:right'>Avg Min</th></tr>
+      <tr>
+        <th>Segment</th>
+        <th style='text-align:right'>Users</th>
+        <th style='text-align:right'>Avg Cal</th>
+        <th style='text-align:right'>Avg Min</th>
+      </tr>
       {rows_c}
     </table>
     <div class='interp-box'>
-      <b>Interpretation:</b> K-Means clustering (k=3) reveals three distinct fitness levels
-      among users — low-activity sedentary users, moderately active users, and highly active users.
+      <b>Interpretation:</b> K-Means clustering (k=3) reveals three distinct fitness levels among
+      users — sedentary, moderately active, and highly active.
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+sec_close()
 
 # ─── EXP 5 — PROBABILITY DISTRIBUTION ────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 5</span>
-    📊 Probability Distribution of Calories
-  </div>
-</div>
-""", unsafe_allow_html=True)
+sec_open(
+    "EXP 5", 
+    "Probability Distribution of Calories",
+    "This experiment visualizes the probability distribution of calories across the dataset, overlaid with a normal distribution fit."
+)
 
 cal_vals = df["Calories"].dropna().values
 cal_mean = cal_vals.mean()
@@ -455,57 +756,52 @@ cal_std  = cal_vals.std()
 
 col_l5, col_r5 = st.columns([2, 1], gap="large")
 with col_l5:
-    # histogram
+    st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     count, bins = np.histogram(cal_vals, bins=35, density=True)
     fig_dist = go.Figure()
     fig_dist.add_trace(go.Bar(
         x=bins[:-1], y=count, width=np.diff(bins),
-        marker_color="rgba(102,126,234,0.55)", name="Observed",
+        marker_color="rgba(102,126,234,0.5)", name="Observed",
         hovertemplate="Cal: %{x:.0f}<br>Density: %{y:.5f}<extra></extra>",
     ))
-    # normal curve
     x_curve = np.linspace(cal_vals.min(), cal_vals.max(), 300)
     y_curve  = norm.pdf(x_curve, cal_mean, cal_std)
     fig_dist.add_trace(go.Scatter(
         x=x_curve, y=y_curve,
-        mode="lines", line=dict(color="#f5a623", width=2.5),
+        mode="lines", line=dict(color="#f59e0b", width=2.5),
         name="Normal Fit",
     ))
     fig_dist.update_layout(**PLOTLY_LAYOUT,
                            xaxis_title="Calories",
                            yaxis_title="Density")
     st.plotly_chart(fig_dist, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r5:
     st.markdown(f"""
-    <div style='margin-top:0.5rem'>
-      <div class='stat-item'><span>Mean</span><span class='stat-val'>≈ {cal_mean:.0f}</span></div>
-      <div class='stat-item'><span>Std Dev</span><span class='stat-val'>≈ {cal_std:.0f}</span></div>
-    </div>
+    <div class='stat-item'><span>Mean</span><span class='stat-val'>&#8776; {cal_mean:.0f}</span></div>
+    <div class='stat-item'><span>Std Dev</span><span class='stat-val'>&#8776; {cal_std:.0f}</span></div>
     <div class='interp-box'>
       <b>Interpretation:</b> The calorie distribution approximates a normal curve with a slight
-      right skew — driven by a minority of users with unusually high calorie expenditure.
+      right skew, driven by a minority of users with high calorie expenditure.
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("---")
+sec_close()
 
 # ─── EXP 6 — STATISTICAL ANALYSIS ────────────────────────────────────────────
-st.markdown("""
-<div class="section-card">
-  <div class="section-title">
-    <span class="section-exp-num">EXP 6</span>
-    📋 Descriptive Statistical Analysis
-  </div>
-</div>
-""", unsafe_allow_html=True)
+sec_open(
+    "EXP 6", 
+    "Descriptive Statistical Analysis",
+    "This experiment summarizes the core descriptive statistics of continuous health metrics to understand central tendency, dispersion, and shape."
+)
 
-cal = df["Calories"]
-mean_v     = np.mean(cal)
-var_v      = np.var(cal)
-std_v      = np.std(cal)
-skew_v     = skew(cal)
-kurt_v     = scipy_kurtosis(cal)
+cal    = df["Calories"]
+mean_v = np.mean(cal)
+var_v  = np.var(cal)
+std_v  = np.std(cal)
+skew_v = skew(cal)
+kurt_v = scipy_kurtosis(cal)
 
 s1, s2, s3, s4, s5 = st.columns(5)
 s1.metric("Mean",      f"{mean_v:.0f}")
@@ -514,18 +810,21 @@ s3.metric("Std Dev",   f"{std_v:.0f}")
 s4.metric("Skewness",  f"{skew_v:.2f}")
 s5.metric("Kurtosis",  f"{kurt_v:.2f}")
 
-# Distribution bar
+st.markdown('<div class="chart-shell" style="margin-top:1.2rem">', unsafe_allow_html=True)
 fig_hist = px.histogram(df, x="Calories", nbins=30,
-                        color_discrete_sequence=["#667eea"],
-                        opacity=0.75)
+                        color_discrete_sequence=["#667eea"], opacity=0.75)
 fig_hist.update_layout(**PLOTLY_LAYOUT,
                        xaxis_title="Calories", yaxis_title="Count",
                        height=220)
 st.plotly_chart(fig_hist, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
-<div class='interp-box'>
-  <b>Interpretation:</b> The data shows moderate variability (std ≈ 703) and slight positive
-  skewness (≈ 0.55), consistent with a roughly normal distribution skewed by high-calorie outliers.
+<div class='interp-box' style='margin-top:1.5rem'>
+  <b>Interpretation:</b> The data shows moderate variability (std &#8776; 703) and slight positive
+  skewness (&#8776; 0.55), consistent with a roughly normal distribution skewed by high-calorie outliers.
 </div>
 """, unsafe_allow_html=True)
+
+sec_close()
+
