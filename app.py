@@ -647,39 +647,68 @@ random_cluster_id = np.random.choice(population["Id"].unique())
 cluster_mean      = population[population["Id"] == random_cluster_id]["Calories"].mean()
 
 sampling_df = pd.DataFrame({
-    "Method":        ["Population","Simple Random","Systematic","Stratified","Cluster (single user)"],
+    "Method":        ["Population", "Simple Random", "Systematic", "Stratified", "Cluster (single user)"],
     "Mean Calories": [pop_mean, sr_mean, sys_mean, strat_mean, cluster_mean],
 })
+
+sampling_df["Deviation"] = sampling_df["Mean Calories"] - pop_mean
+sampling_df["Abs_Dev"]   = sampling_df["Deviation"].abs()
+
+# Sort by closest to population mean (best -> worst)
+sampling_df = sampling_df.sort_values("Abs_Dev").reset_index(drop=True)
+
+def get_color(dev, method):
+    if method == "Population": return "#667eea"
+    if dev < 50: return "#34d399"    # Green (close)
+    elif dev < 150: return "#f59e0b" # Yellow (moderate)
+    else: return "#f87171"           # Red (high deviation)
+
+sampling_df["Color"] = sampling_df.apply(lambda x: get_color(x["Abs_Dev"], x["Method"]), axis=1)
+sampling_df["Label"] = sampling_df.apply(
+    lambda x: "Base" if x["Method"] == "Population" else f"{'+' if x['Deviation'] > 0 else ''}{x['Deviation']:.0f}", 
+    axis=1
+)
 
 col_l3, col_r3 = st.columns([2, 1], gap="large")
 with col_l3:
     st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_bar = px.bar(sampling_df, x="Method", y="Mean Calories",
-                     text_auto=".0f", color="Method",
-                     color_discrete_sequence=["#667eea","#f59e0b","#34d399","#f87171","#a78bfa"])
+                     text="Label", color="Method",
+                     color_discrete_map=dict(zip(sampling_df["Method"], sampling_df["Color"])))
     fig_bar.add_hline(y=pop_mean, line_dash="dash",
-                      line_color="rgba(255,255,255,0.25)",
+                      line_color="rgba(255,255,255,0.4)",
                       annotation_text=f"Population Mean: {pop_mean:.0f}",
-                      annotation_font_color="rgba(255,255,255,0.45)")
+                      annotation_font_color="white")
+    fig_bar.update_traces(textposition='inside', 
+                          textfont=dict(size=14, color='white'),
+                          texttemplate="<b>%{text}</b>")
     fig_bar.update_layout(**PLOTLY_LAYOUT, showlegend=False,
                           xaxis_title="", yaxis_title="Mean Calories")
     st.plotly_chart(fig_bar, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r3:
-    rows_html = "".join(
-        f"<tr><td>{r['Method']}</td>"
-        f"<td style='text-align:right;color:#e2e8f0;font-weight:600'>{r['Mean Calories']:.0f}</td></tr>"
-        for _, r in sampling_df.iterrows()
-    )
+    rows_html = ""
+    for idx, r in sampling_df.iterrows():
+        if r["Method"] == "Population":
+            style, dev_str = "color:#818cf8; font-weight:800;", "Base"
+        elif idx == 1:  # Best method
+            style, dev_str = "color:#34d399; font-weight:700;", f"({'+' if r['Deviation']>0 else ''}{r['Deviation']:.0f})"
+        elif idx == len(sampling_df) - 1:  # Worst method
+            style, dev_str = "color:#f87171; font-weight:700; opacity:0.9;", f"({'+' if r['Deviation']>0 else ''}{r['Deviation']:.0f})"
+        else:
+            style, dev_str = "color:#e2e8f0; font-weight:600;", f"({'+' if r['Deviation']>0 else ''}{r['Deviation']:.0f})"
+            
+        rows_html += f"<tr><td>{r['Method']}</td><td style='text-align:right;'><span style='{style}'>{r['Mean Calories']:.0f} <span style='font-size:0.75rem; opacity:0.8;'>{dev_str}</span></span></td></tr>"
+
     st.markdown(f"""
     <table class='styled-table'>
-      <tr><th>Method</th><th style='text-align:right'>Mean Calories</th></tr>
+      <tr><th>Method</th><th style='text-align:right'>Mean Calories (Dev)</th></tr>
       {rows_html}
     </table>
     <div class='interp-box'>
       <b>Interpretation:</b> Random and systematic sampling closely approximate the population mean,
-      while cluster sampling (single-user) shows greater deviation due to individual variability.
+      while cluster sampling shows greater deviation due to individual variability.
     </div>
     """, unsafe_allow_html=True)
 
