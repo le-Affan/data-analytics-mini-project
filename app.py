@@ -467,15 +467,14 @@ n_rows, n_cols = df.shape
 
 # ─── HELPER: section card opener / closer ─────────────────────────────────────
 def sec_open(badge, title, desc=""):
-    desc_html = f"<div class='sec-desc'>{desc}</div>" if desc else ""
+    desc_html = f"<div class='sec-desc' style='margin-bottom: 1rem;'>{desc}</div>" if desc else ""
     st.markdown(f"""
-    <div class="glass-card" style="padding: 2.5rem 2.8rem 2.2rem;">
-      <div class="sec-header">
+    <div class="glass-card" style="padding: 1.5rem 2rem 1.2rem;">
+      <div class="sec-header" style="margin-bottom: 0.2rem;">
         <span class="sec-badge">{badge}</span>
-        <span class="sec-title">{title}</span>
+        <span class="sec-title" style="font-size: 1.5rem;">{title}</span>
       </div>
       {desc_html}
-      <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 1.5rem 0 2.2rem 0;"></div>
     """, unsafe_allow_html=True)
 
 def sec_close():
@@ -571,11 +570,6 @@ with col_r:
     <div class='stat-item'><span>Upper Bound</span><span class='stat-val'>{ub:.2f}</span></div>
     <div class='stat-item' style='margin-top: 0.5rem;'><span style='font-weight: 700; color: #f1f5f9;'>Outlier Count</span><span class='stat-val' style='font-size: 1.15rem; color: #f87171;'>{len(outliers)}</span></div>
     
-    <div style='margin-top: 1.8rem; color: #c084fc; font-weight: 600; font-size: 1.05rem; display: flex; align-items: start; gap: 0.4rem;'>
-      <span style='font-size: 1.2rem;'>&#10024;</span> 
-      <div><b>Key Insight:</b> Calories show high variability with multiple outliers on both ends.</div>
-    </div>
-    
     <div class='interp-box'>
       <b>Interpretation:</b> Calorie expenditure shows notable variability with several extreme
       values, indicating diverse activity levels among users.
@@ -587,8 +581,8 @@ sec_close()
 # ─── EXP 2 — LINEAR REGRESSION ────────────────────────────────────────────────
 sec_open(
     "EXP 2", 
-    "Linear Regression &mdash; Active Minutes vs Calories",
-    "This experiment explores the linear relationship between total active minutes and calories burned using ordinary least squares (OLS) regression."
+    "Linear Regression Analysis",
+    "Relationship between Total Active Minutes and Calories Burned"
 )
 
 slope_full, intercept_full, r_full, _, _ = linregress(df_raw["TotalActiveMinutes"], df_raw["Calories"])
@@ -599,7 +593,9 @@ with col_l2:
     st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_reg = px.scatter(df, x="TotalActiveMinutes", y="Calories",
                          trendline="ols", trendline_color_override="#f59e0b",
-                         opacity=0.55, color_discrete_sequence=["#667eea"])
+                         color_discrete_sequence=["#667eea"])
+    fig_reg.update_traces(marker=dict(opacity=0.8, size=6), selector=dict(mode='markers'))
+    fig_reg.update_traces(line=dict(width=4), selector=dict(mode='lines'))
     fig_reg.update_layout(**PLOTLY_LAYOUT,
                           xaxis_title="Total Active Minutes",
                           yaxis_title="Calories")
@@ -608,11 +604,20 @@ with col_l2:
 
 with col_r2:
     st.markdown(f"""
-    <div class='stat-item'><span>Intercept</span><span class='stat-val'>&#8776; {intercept_full:.1f}</span></div>
-    <div class='stat-item'><span>Slope</span><span class='stat-val'>&#8776; {slope_full:.4f}</span></div>
-    <div class='stat-item'><span>R&sup2; Score</span><span class='stat-val'>&#8776; {r2_full:.4f}</span></div>
-    <div class='interp-box'>
-      <b>Interpretation:</b> There is a weak positive relationship between total active minutes
+    <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.4rem; margin-bottom: 1.8rem; text-align: center; font-family: 'Courier New', Courier, monospace; box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);">
+      <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; font-family: 'Inter', sans-serif;">Model Equation</div>
+      <div style="color: #e2e8f0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.5px;">
+        Calories &approx; {intercept_full:.1f} &plus; ({slope_full:.2f} &times; Activity)
+      </div>
+    </div>
+    
+    <div class='stat-item'><span>Base Calories (Intercept)</span><span class='stat-val'>&#8776; {intercept_full:.1f}</span></div>
+    <div class='stat-item'><span>Calories per Active Minute</span><span class='stat-val'>&#8776; {slope_full:.2f}</span></div>
+    <div class='stat-item' style='border-bottom: none;'><span>Model Fit (R&sup2;)</span><span class='stat-val'>&#8776; {r2_full:.4f}</span></div>
+    <div style="font-size: 0.82rem; color: #64748b; margin-top: -0.3rem; margin-bottom: 2rem; padding-bottom: 0.5rem; text-align: right;">Explains how well activity predicts calorie expenditure</div>
+
+    <div class='interp-box' style='font-size: 1.1rem; border-left: 4px solid #fca5a5;'>
+      <b>Interpretation:</b> There is a <strong style="color: #fca5a5; font-weight: 800;">weak positive relationship</strong> between total active minutes
       and calories burned, suggesting additional factors also influence calorie expenditure.
     </div>
     """, unsafe_allow_html=True)
