@@ -27,10 +27,34 @@ html, body, [class*="css"] {
     background: transparent !important;
 }
 
-/* ── Full-page dark gradient ── */
+/* ── Animated layered gradient background ── */
+@keyframes gradientShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 .stApp {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%) !important;
+    background:
+        radial-gradient(ellipse 80% 50% at 8% 15%,  rgba(99,102,241,0.13) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 45% at 88% 55%, rgba(139,92,246,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 95%, rgba(59,130,246,0.08) 0%, transparent 60%),
+        linear-gradient(160deg, #080d1a 0%, #0f172a 30%, #13103a 60%, #0a0f1e 100%) !important;
+    background-size: 200% 200% !important;
+    animation: gradientShift 22s ease infinite !important;
     min-height: 100vh;
+    position: relative;
+}
+
+/* ── Noise / grain texture overlay ── */
+.stApp::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
 }
 
 /* ── Hide sidebar toggle & default padding ── */
@@ -40,12 +64,15 @@ section[data-testid="stSidebar"] { display: none !important; }
     max-width: 1100px !important;
     padding: 2rem 2rem 4rem 2rem !important;
     margin: 0 auto !important;
+    position: relative;
+    z-index: 1;
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.4); border-radius: 3px; }
+::-webkit-scrollbar-track { background: #080d1a; }
+::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.35); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(102,126,234,0.55); }
 
 /* ─────────────────────────────────────────
    HERO HEADER
@@ -58,7 +85,10 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-radius: 20px;
     padding: 2.8rem 2.5rem 2.4rem;
     margin-bottom: 2rem;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow:
+        0 8px 40px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.04) inset,
+        inset 0 1px 0 rgba(255,255,255,0.07);
     animation: fadeDown 0.7s ease both;
     position: relative;
     overflow: hidden;
@@ -67,16 +97,16 @@ section[data-testid="stSidebar"] { display: none !important; }
     content: '';
     position: absolute;
     top: -60px; left: -60px;
-    width: 260px; height: 260px;
-    background: radial-gradient(circle, rgba(102,126,234,0.18) 0%, transparent 70%);
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(102,126,234,0.22) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-wrap::after {
     content: '';
     position: absolute;
     bottom: -80px; right: -60px;
-    width: 300px; height: 300px;
-    background: radial-gradient(circle, rgba(118,75,162,0.14) 0%, transparent 70%);
+    width: 360px; height: 360px;
+    background: radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-title {
@@ -123,14 +153,17 @@ section[data-testid="stSidebar"] { display: none !important; }
    METRIC CARDS
 ───────────────────────────────────────── */
 div[data-testid="metric-container"] {
-    background: rgba(255,255,255,0.04) !important;
+    background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.025) 100%) !important;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
     border-radius: 18px !important;
     padding: 1.4rem 1.5rem !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    box-shadow:
+        0 4px 32px rgba(0,0,0,0.4),
+        0 1px 0 rgba(255,255,255,0.07) inset,
+        0 0 20px rgba(102,126,234,0.04) inset !important;
+    transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s ease, border-color 0.28s ease;
     position: relative;
     overflow: hidden;
 }
@@ -139,13 +172,17 @@ div[data-testid="metric-container"]::before {
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 2px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+    background-size: 200% 100%;
     border-radius: 18px 18px 0 0;
 }
 div[data-testid="metric-container"]:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 12px 40px rgba(102,126,234,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
-    border-color: rgba(102,126,234,0.3) !important;
+    transform: translateY(-5px) scale(1.015);
+    box-shadow:
+        0 16px 48px rgba(0,0,0,0.45),
+        0 0 32px rgba(102,126,234,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.1) !important;
+    border-color: rgba(102,126,234,0.32) !important;
 }
 div[data-testid="metric-container"] label {
     color: #64748b !important;
@@ -162,24 +199,41 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
 }
 
 /* ─────────────────────────────────────────
-   SECTION CARDS (glassmorphism)
+   SECTION CARDS (glassmorphism + depth)
 ───────────────────────────────────────── */
 .glass-card {
-    background: rgba(255,255,255,0.03);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 20px;
     padding: 2rem 2rem 1.6rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    margin-bottom: 2.2rem;
+    box-shadow:
+        0 8px 48px rgba(0,0,0,0.45),
+        0 2px 0 rgba(255,255,255,0.06) inset,
+        0 0 40px rgba(102,126,234,0.04) inset;
+    transition: transform 0.32s cubic-bezier(.22,.68,0,1.1), box-shadow 0.32s ease, border-color 0.32s ease;
     animation: fadeUp 0.6s ease both;
+    position: relative;
+}
+/* Ambient top glow line on cards */
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(102,126,234,0.35), transparent);
+    border-radius: 20px;
+    pointer-events: none;
 }
 .glass-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 48px rgba(102,126,234,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-    border-color: rgba(102,126,234,0.18);
+    transform: translateY(-5px);
+    box-shadow:
+        0 24px 72px rgba(0,0,0,0.5),
+        0 0 48px rgba(102,126,234,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    border-color: rgba(102,126,234,0.25);
 }
 
 /* Section header row */
@@ -187,7 +241,7 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
     display: flex;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.3rem;
 }
 .sec-badge {
     background: linear-gradient(135deg, #667eea, #764ba2);
@@ -198,21 +252,24 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
     font-weight: 800;
     letter-spacing: 0.8px;
     flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(102,126,234,0.45);
 }
 .sec-title {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 800;
     color: #f1f5f9;
     margin: 0;
     line-height: 1.3;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.4px;
 }
 .sec-desc {
-    color: #cbd5e1;
-    font-size: 1.05rem;
+    color: #94a3b8;
+    font-size: 0.98rem;
     font-weight: 400;
     line-height: 1.6;
-    margin-bottom: 1.5rem;
+    margin-top: 0.4rem;
+    margin-bottom: 1.4rem;
+    padding-left: 0.2rem;
 }
 
 /* ─────────────────────────────────────────
@@ -237,7 +294,7 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
    INTERPRETATION BOX
 ───────────────────────────────────────── */
 .interp-box {
-    background: rgba(102,126,234,0.1);
+    background: rgba(102,126,234,0.09);
     border-left: 4px solid #818cf8;
     border-radius: 0 16px 16px 0;
     padding: 1.4rem 1.6rem;
@@ -245,7 +302,7 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
     font-size: 1.05rem;
     color: #f1f5f9;
     line-height: 1.7;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2), inset 0 0 30px rgba(102,126,234,0.04);
 }
 .interp-box b { color: #c084fc; font-weight: 800; }
 
@@ -258,7 +315,7 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
     font-size: 0.84rem;
 }
 .styled-table th {
-    background: rgba(102,126,234,0.15);
+    background: rgba(102,126,234,0.12);
     color: #a5b4fc;
     padding: 8px 12px;
     text-align: left;
@@ -274,14 +331,62 @@ div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
 .styled-table tr:hover td { background: rgba(255,255,255,0.03); }
 
 /* ─────────────────────────────────────────
-   CHART CARD WRAPPER
+   CHART CARD WRAPPER — floating panel feel
 ───────────────────────────────────────── */
 .chart-shell {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 14px;
-    padding: 1rem 0.5rem 0.5rem;
+    background: linear-gradient(160deg, rgba(15,23,42,0.7) 0%, rgba(10,15,30,0.85) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 1rem 0.6rem 0.4rem;
     margin-bottom: 0.5rem;
+    box-shadow:
+        0 8px 36px rgba(0,0,0,0.45),
+        0 0 0 1px rgba(255,255,255,0.03) inset;
+    transition: box-shadow 0.32s ease, border-color 0.32s ease, transform 0.32s cubic-bezier(.22,.68,0,1.1);
+    position: relative;
+}
+/* Subtle glow behind the graph */
+.chart-shell::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 17px;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(102,126,234,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+.chart-shell:hover {
+    box-shadow:
+        0 14px 52px rgba(0,0,0,0.55),
+        0 0 40px rgba(102,126,234,0.12);
+    border-color: rgba(102,126,234,0.18);
+    transform: translateY(-2px);
+}
+
+/* GitHub link button */
+.gh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 50px;
+    padding: 0.55rem 1.3rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #c7d2fe;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+}
+.gh-btn:hover {
+    background: rgba(102,126,234,0.18);
+    border-color: rgba(102,126,234,0.5);
+    color: #a5b4fc;
+    box-shadow: 0 0 24px rgba(102,126,234,0.28);
+    transform: translateY(-2px);
+    text-decoration: none;
 }
 
 /* ─────────────────────────────────────────
@@ -484,10 +589,14 @@ def sec_close():
 st.markdown(f"""
 <div class="hero-wrap" style="padding: 3.5rem 2.5rem; text-align: center;">
   <p class="hero-title" style="font-size: 3.6rem; letter-spacing: -1.2px;">Fitness Analytics <span>Dashboard</span></p>
-  <p class="hero-sub" style="font-size: 1.15rem; color: #cbd5e1; font-weight: 500; margin-bottom: 2rem;">Comprehensive Analysis of Activity, Calories, and Health Patterns</p>
-  <div style="max-width: 850px; margin: 0 auto; color: #94a3b8; font-size: 0.98rem; line-height: 1.7;">
+  <p class="hero-sub" style="font-size: 1.15rem; color: #cbd5e1; font-weight: 500; margin-bottom: 1.2rem;">Comprehensive Analysis of Activity, Calories, and Health Patterns</p>
+  <div style="max-width: 850px; margin: 0 auto; color: #94a3b8; font-size: 0.98rem; line-height: 1.7; margin-bottom: 1.8rem;">
     This project analyzes real-world Fitbit fitness tracker data to understand activity patterns, calorie expenditure, sleep behavior, and user fitness segmentation using statistical analysis and machine learning techniques.
   </div>
+  <a class="gh-btn" href="https://github.com/le-Affan/data-analytics-mini-project" target="_blank">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+    View Project on GitHub
+  </a>
 </div>
 """, unsafe_allow_html=True)
 
