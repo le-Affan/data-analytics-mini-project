@@ -717,33 +717,36 @@ sec_close()
 # ─── EXP 4 — CLUSTERING ───────────────────────────────────────────────────────
 sec_open(
     "EXP 4", 
-    "K-Means Clustering &mdash; User Fitness Segments",
-    "This experiment applies K-Means clustering to segment users into distinct activity levels based on total active minutes and calories."
+    "K-Means Clustering",
+    "User Segmentation based on Activity Levels"
 )
 
-CLUSTER_LABELS = {"0":"Low Activity","1":"Medium Activity","2":"High Activity"}
+CLUSTER_LABELS = {"0":"Low Activity", "1":"Medium Activity", "2":"High Activity"}
+# Higher contrast distinct colors
+CLUSTER_COLOR_MAP = {"Low Activity": "#60a5fa", "Medium Activity": "#fbbf24", "High Activity": "#34d399"}
 
 df_plot = df.copy()
-df_plot["Cluster_Str"] = df_plot["Cluster"].astype(str)
-df_plot["Segment"]     = df_plot["Cluster_Str"].map(CLUSTER_LABELS)
+df_plot["Segment"] = df_plot["Cluster"].astype(str).map(CLUSTER_LABELS)
 
 col_l4, col_r4 = st.columns([2, 1], gap="large")
 with col_l4:
     st.markdown('<div class="chart-shell">', unsafe_allow_html=True)
     fig_clust = px.scatter(df_plot, x="TotalActiveMinutes", y="Calories",
-                           color="Cluster_Str",
-                           hover_data={"Segment":True,"Cluster_Str":False},
+                           color="Segment",
                            color_discrete_map=CLUSTER_COLOR_MAP,
-                           opacity=0.65)
+                           opacity=0.7)
+    fig_clust.update_traces(marker=dict(size=8, line=dict(width=0)))
     fig_clust.update_layout(**PLOTLY_LAYOUT,
                             xaxis_title="Total Active Minutes",
                             yaxis_title="Calories",
-                            legend_title="Cluster")
+                            legend_title="User Segment")
+    fig_clust.update_xaxes(gridcolor="rgba(255,255,255,0.06)", zerolinecolor="rgba(255,255,255,0.1)")
+    fig_clust.update_yaxes(gridcolor="rgba(255,255,255,0.06)", zerolinecolor="rgba(255,255,255,0.1)")
     st.plotly_chart(fig_clust, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r4:
-    cluster_stats = df_plot.groupby("Cluster_Str").agg(
+    cluster_stats = df_plot.groupby("Segment").agg(
         Count=("Calories","count"),
         Avg_Cal=("Calories","mean"),
         Avg_Min=("TotalActiveMinutes","mean"),
@@ -751,8 +754,8 @@ with col_r4:
 
     rows_c = "".join(
         f"<tr>"
-        f"<td><span style='color:{CLUSTER_COLOR_MAP[r.Cluster_Str]};font-weight:600'>"
-        f"{CLUSTER_LABELS.get(r.Cluster_Str, r.Cluster_Str)}</span></td>"
+        f"<td><span style='color:{CLUSTER_COLOR_MAP.get(r.Segment, '#fff')}; font-weight:800; font-size:0.92rem;'>"
+        f"{r.Segment}</span></td>"
         f"<td style='text-align:right'>{r.Count}</td>"
         f"<td style='text-align:right'>{r.Avg_Cal:.0f}</td>"
         f"<td style='text-align:right'>{r.Avg_Min:.0f}</td>"
@@ -763,15 +766,14 @@ with col_r4:
     <table class='styled-table'>
       <tr>
         <th>Segment</th>
-        <th style='text-align:right'>Users</th>
-        <th style='text-align:right'>Avg Cal</th>
-        <th style='text-align:right'>Avg Min</th>
+        <th style='text-align:right'>Number of Users</th>
+        <th style='text-align:right'>Average Calories</th>
+        <th style='text-align:right'>Average Active Minutes</th>
       </tr>
       {rows_c}
     </table>
     <div class='interp-box'>
-      <b>Interpretation:</b> K-Means clustering (k=3) reveals three distinct fitness levels among
-      users — sedentary, moderately active, and highly active.
+      <b>Interpretation:</b> K-Means clustering (k=3) identifies three distinct user segments based on activity and calorie patterns, representing low, moderate, and high fitness levels.
     </div>
     """, unsafe_allow_html=True)
 
@@ -780,8 +782,8 @@ sec_close()
 # ─── EXP 5 — PROBABILITY DISTRIBUTION ────────────────────────────────────────
 sec_open(
     "EXP 5", 
-    "Probability Distribution of Calories",
-    "This experiment visualizes the probability distribution of calories across the dataset, overlaid with a normal distribution fit."
+    "Probability Distribution",
+    "Distribution of Calorie Expenditure with Normal Fit"
 )
 
 cal_vals = df["Calories"].dropna().values
@@ -795,29 +797,35 @@ with col_l5:
     fig_dist = go.Figure()
     fig_dist.add_trace(go.Bar(
         x=bins[:-1], y=count, width=np.diff(bins),
-        marker_color="rgba(102,126,234,0.5)", name="Observed",
+        marker_color="rgba(102,126,234,0.35)", name="Actual Distribution",
         hovertemplate="Cal: %{x:.0f}<br>Density: %{y:.5f}<extra></extra>",
     ))
     x_curve = np.linspace(cal_vals.min(), cal_vals.max(), 300)
     y_curve  = norm.pdf(x_curve, cal_mean, cal_std)
     fig_dist.add_trace(go.Scatter(
         x=x_curve, y=y_curve,
-        mode="lines", line=dict(color="#f59e0b", width=2.5),
-        name="Normal Fit",
+        mode="lines", line=dict(color="#f59e0b", width=3.5),
+        name="Normal Distribution Curve",
     ))
-    fig_dist.update_layout(**PLOTLY_LAYOUT,
-                           xaxis_title="Calories",
-                           yaxis_title="Density")
+    fig_dist.update_layout(**PLOTLY_LAYOUT)
+    fig_dist.update_layout(
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(255,255,255,0.08)",
+            yanchor="top", y=0.99, xanchor="right", x=0.99
+        )
+    )
+    fig_dist.update_xaxes(title_text="Calories Burned", title_font=dict(size=13))
+    fig_dist.update_yaxes(title_text="Density", title_font=dict(size=13))
     st.plotly_chart(fig_dist, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_r5:
     st.markdown(f"""
-    <div class='stat-item'><span>Mean</span><span class='stat-val'>&#8776; {cal_mean:.0f}</span></div>
-    <div class='stat-item'><span>Std Dev</span><span class='stat-val'>&#8776; {cal_std:.0f}</span></div>
+    <div class='stat-item'><span>Average Calories</span><span class='stat-val'>&#8776; {cal_mean:.0f}</span></div>
+    <div class='stat-item'><span>Standard Deviation</span><span class='stat-val'>&#8776; {cal_std:.0f}</span></div>
     <div class='interp-box'>
-      <b>Interpretation:</b> The calorie distribution approximates a normal curve with a slight
-      right skew, driven by a minority of users with high calorie expenditure.
+      <b>Interpretation:</b> The calorie distribution approximates a normal distribution with a slight right skew, indicating that higher calorie values occur less frequently but extend the upper tail.
     </div>
     """, unsafe_allow_html=True)
 
@@ -837,26 +845,63 @@ std_v  = np.std(cal)
 skew_v = skew(cal)
 kurt_v = scipy_kurtosis(cal)
 
-s1, s2, s3, s4, s5 = st.columns(5)
-s1.metric("Mean",      f"{mean_v:.0f}")
-s2.metric("Variance",  f"{var_v:.0f}")
-s3.metric("Std Dev",   f"{std_v:.0f}")
-s4.metric("Skewness",  f"{skew_v:.2f}")
-s5.metric("Kurtosis",  f"{kurt_v:.2f}")
+# Structured stat cards instead of columns of st.metric
+st.markdown(f"""
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- CARD 1 -->
+  <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    <div style="color: #94a3b8; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem;">Central Tendency</div>
+    <div style="color: #60a5fa; font-size: 2.2rem; font-weight: 800; line-height: 1;">Mean = {mean_v:.0f}</div>
+  </div>
 
-st.markdown('<div class="chart-shell" style="margin-top:1.2rem">', unsafe_allow_html=True)
-fig_hist = px.histogram(df, x="Calories", nbins=30,
-                        color_discrete_sequence=["#667eea"], opacity=0.75)
+  <!-- CARD 2 -->
+  <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    <div style="color: #94a3b8; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem; text-align: center;">Dispersion</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <span style="color: #cbd5e1; font-size: 1.05rem;">Variance</span>
+        <span style="color: #f59e0b; font-weight: 700; font-size: 1.2rem;">{var_v:.0f}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #cbd5e1; font-size: 1.05rem;">Std Dev</span>
+        <span style="color: #f59e0b; font-weight: 700; font-size: 1.2rem;">{std_v:.0f}</span>
+    </div>
+  </div>
+
+  <!-- CARD 3 -->
+  <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+    <div style="color: #94a3b8; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem; text-align: center;">Distribution Shape</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <span style="color: #cbd5e1; font-size: 1.05rem;">Skewness</span>
+        <span style="color: #34d399; font-weight: 700; font-size: 1.2rem;">{skew_v:.2f}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #cbd5e1; font-size: 1.05rem;">Kurtosis</span>
+        <span style="color: #34d399; font-weight: 700; font-size: 1.2rem;">{kurt_v:.2f}</span>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+fig_hist = px.histogram(df, x="Calories", nbins=50,
+                        color_discrete_sequence=["#667eea"], opacity=0.8)
+fig_hist.update_traces(marker_line_width=1.5, marker_line_color="rgba(15,23,42,0.8)")
+
+fig_hist.add_vline(x=mean_v, line_dash="dash", line_width=2.5, line_color="#ef4444",
+                   annotation_text="Mean", annotation_font_color="#ef4444", 
+                   annotation_position="top right", annotation_font_size=13)
+
 fig_hist.update_layout(**PLOTLY_LAYOUT,
-                       xaxis_title="Calories", yaxis_title="Count",
-                       height=220)
+                       xaxis_title="Calories Burned", yaxis_title="Frequency",
+                       height=320)
+fig_hist.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+fig_hist.update_xaxes(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.1)")
+fig_hist.update_yaxes(gridcolor="rgba(255,255,255,0.05)", zerolinecolor="rgba(255,255,255,0.1)")
+
 st.plotly_chart(fig_hist, use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class='interp-box' style='margin-top:1.5rem'>
-  <b>Interpretation:</b> The data shows moderate variability (std &#8776; 703) and slight positive
-  skewness (&#8776; 0.55), consistent with a roughly normal distribution skewed by high-calorie outliers.
+  <b>Interpretation:</b> The distribution shows moderate variability (standard deviation &#8776; 703) with slight positive skewness, indicating most users cluster around average calorie expenditure while a smaller group exhibits higher calorie burn.
 </div>
 """, unsafe_allow_html=True)
 
